@@ -106,24 +106,40 @@ promiseChain = promiseChain.then(connectToClient(usersClient));
 promiseChain = promiseChain.then(connectToClient(dojosClient));
 promiseChain = promiseChain.then(connectToClient(eventsClient));
 if (getChampions) {
-  countries.forEach(function (country) {
-    promiseChain = promiseChain.then(getChampionsEmailWithNewsletter(country));
-  });
+  if (countries.length > 0) {
+    countries.forEach(function (country) {
+      promiseChain = promiseChain.then(getChampionsEmailWithNewsletter(country));
+    });
+  } else {
+    promiseChain = promiseChain.then(getChampionsEmailWithNewsletter());
+  }
 }
 if (getO13s) {
-  countries.forEach(function (country) {
-    promiseChain = promiseChain.then(getO13sEmailWithNewsletter(country));
-  });
+  if (countries.length > 0) {
+    countries.forEach(function (country) {
+      promiseChain = promiseChain.then(getO13sEmailWithNewsletter(country));
+    });
+  } else {
+    promiseChain = promiseChain.then(getO13sEmailWithNewsletter());
+  }
 }
 if (getMentors) {
-  countries.forEach(function (country) {
-    promiseChain = promiseChain.then(getMentorsEmailWithNewsletter(country));
-  });
+  if (countries.length > 0) {
+    countries.forEach(function (country) {
+      promiseChain = promiseChain.then(getMentorsEmailWithNewsletter(country));
+    });
+  } else {
+    promiseChain = promiseChain.then(getMentorsEmailWithNewsletter());
+  }
 }
 if (getParents) {
-  countries.forEach(function (country) {
-    promiseChain = promiseChain.then(getParentsEmailWithNewsletter(country));
-  });
+  if (countries.length > 0) {
+    countries.forEach(function (country) {
+      promiseChain = promiseChain.then(getParentsEmailWithNewsletter(country));
+    });
+  } else {
+    promiseChain = promiseChain.then(getParentsEmailWithNewsletter());
+  }
 }
 promiseChain = promiseChain.then(disconnectFromClient(usersClient));
 promiseChain = promiseChain.then(disconnectFromClient(dojosClient));
