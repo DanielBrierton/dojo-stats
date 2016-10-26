@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 var util = require('util');
 var _ = require('lodash');
 var moment = require('moment');
@@ -8,13 +9,45 @@ var json2csv = require('json2csv');
 
 pg.types.setTypeParser(20, 'text', parseInt);
 
-var argv = require('minimist')(process.argv.slice(2));
-var usersdb = argv.usersdb || 'cp-users-development';
-var dojosdb = argv.dojosdb || 'cp-dojos-development';
-var eventsdb = argv.eventsdb || 'cp-events-development';
-var user = argv.user || 'platform';
-var password = argv.password || 'QdYx3D5y';
-var interval = argv.interval || '30';
+var program = require('commander');
+
+program
+  .version('0.0.1')
+  .usage('[options]')
+  .option('--get-stats', 'Output stats to file')
+  .option('--interval', 'Amount of previous days to gather stats for')
+  .option('--get-champions', 'Output champions emails signed up to mailing list to file')
+  .option('--get-mentors', 'Output mentors emails signed up to mailing list to file')
+  .option('--get-parents', 'Output parents emails signed up to mailing list to file')
+  .option('--get-o13s', 'Output O13s emails signed up to mailing list to file')
+  .option('--include-non-dojo-members', 'Include emails of those not a member of a dojo in email dump')
+  .option('--countries <items>', 'Comma separated list of country alpha2 codes', function (val) { return val.split(','); })
+  .option('--usersdb', 'Database name for users database')
+  .option('--dojosdb', 'Database name for dojos database')
+  .option('--eventsdb', 'Database name for events database')
+  .option('--eventsdb', 'Database name for events database')
+  .option('--user', 'Database user')
+  .option('--password', 'Database password')
+  .parse(process.argv);
+
+var usersdb = program.usersdb || 'cp-users-development';
+var dojosdb = program.dojosdb || 'cp-dojos-development';
+var eventsdb = program.eventsdb || 'cp-events-development';
+var user = program.user || 'platform';
+var password = program.password || 'QdYx3D5y';
+var interval = program.interval || '30';
+var getStats = program.getStats || false;
+var getChampions = program.getChampions || false;
+var getMentors = program.getMentors || false;
+var getParents = program.getParents || false;
+var getO13s = program.getO13s || false;
+var includeNonDojoMembers = program.includeNonDojoMembers || false;
+var countries = program.countries || [];
+
+if (!getStats && !getChampions && !getMentors && !getParents && !getO13s) {
+  program.outputHelp();
+  process.exit(1);
+}
 
 var date = moment();
 var monthAgo = moment().day(-interval);
@@ -67,83 +100,86 @@ var eventsClient = new pg.Client({
 
 // Set up file output
 var filename = date.format("YYYY-MM-DD") + '-stats.txt';
-console.log(filename);
-fs.appendFileSync(filename, date.format("YYYY-MM-DD") +'\n');
-  numberUsers()
-  // .then(getChampionPhonesForPolledDojos())
-  // .then(getO13EmailsPerCountry('CZ'))
-  // .then(getO13EmailsPerCountry('NL'))
-  // .then(getO13EmailsPerCountry('GB'))
-  // .then(getO13EmailsPerCountry('IE'))
-  // .then(getO13EmailsPerCountry('US'))
-  // .then(getO13EmailsPerCountry('FR'))
-  // .then(getO13EmailsPerCountry('DE'))
-  // .then(getO13EmailsPerCountry('HU'))
-  // .then(getO13EmailsPerCountry('IT'))
-  // .then(getO13EmailsPerCountry('PL'))
-  // .then(getO13EmailsPerCountry('RO'))
-  // .then(getO13EmailsPerCountry('ES'))
-
-  // .then(getUsersEmailByOldUserType('mentor'))
-  // .then(getChampionsEmailWithNewsletter('IE'))
-  .then(getChampionsEmailWithNewsletter('GB'))
-  // .then(getChampionsEmailWithNewsletter('US'))
-  // .then(getChampionsEmailWithNewsletter('IT'))
-  // .then(getChampionsEmailWithNewsletter('IE'))
-  // .then(getChampionsEmailWithNewsletter('US'))
-  // .then(getChampionsEmailWithNewsletter('FR'))
-  // .then(getChampionsEmailWithNewsletter('DE'))
-  // .then(getChampionsEmailWithNewsletter('HU'))
-  // .then(getChampionsEmailWithNewsletter('IT'))
-  // .then(getChampionsEmailWithNewsletter('PL'))
-  // .then(getChampionsEmailWithNewsletter('RO'))
-  // .then(getChampionsEmailWithNewsletter('ES'))
-  // .then(getChampionsEmailWithNewsletter())
-  // .then(getEveryNonChampionUsersEmailWithNewsletter)
-  // .then(activeDojos)
-  // .then(dojosUsingEvents)
-  // .then(groupedDojosUsingEvents)
-  // .then(recentEvents)
-  // .then(regularEvents)
-  // .then(newUsers)
-  // .then(totalUsers)
-  // .then(averageEventCap)
-  // .then(NumberOfYouthBookedAndCheckedIn)
-  // .then(NumberOfYouthBooked)
-  // .then(NumberOfYouthBookedAtLeastTwice)
-  // .then(NumberOfYouthBookedAndCheckedInAtLeastTwice)
-  // .then(NumberOfDojosWithEventsWithAtLeastOneAttendant)
-  // .then(NumberOfDojosWithEventsWithAtLeastOneAttendantWhoCheckedIn)
-  .then(function() {
-    console.log('Stats finished');
+//var countries = ['AU', 'BE', 'NL', 'RO', 'DE', 'ES', 'SE', 'FR'];
+var promiseChain = Promise.resolve();
+promiseChain = promiseChain.then(connectToClient(usersClient));
+promiseChain = promiseChain.then(connectToClient(dojosClient));
+promiseChain = promiseChain.then(connectToClient(eventsClient));
+if (getChampions) {
+  countries.forEach(function (country) {
+    promiseChain = promiseChain.then(getChampionsEmailWithNewsletter(country));
   });
-  // numberUsers('mentors'),
-// getChampionsEmailFrom('GB');
-// getDojosFrom(['GB', 'IE']);
-
-
-// Connect to db and execute
-usersClient.connect(function (err) {
-  if (err) throw err;
-  dojosClient.connect(function (err) {
-    if (err) throw err;
-    eventsClient.connect(function (err) {
-      if (err) throw err;
-      activeDojoChampions().then(function () {
-        usersClient.end(function (err) {
-          if (err) throw err;
-        });
-        dojosClient.end(function (err) {
-          if (err) throw err;
-        });
-        eventsClient.end(function (err) {
-          if (err) throw err;
-        });
-      });
-    });
+}
+if (getO13s) {
+  countries.forEach(function (country) {
+    promiseChain = promiseChain.then(getO13sEmailWithNewsletter(country));
   });
+}
+if (getMentors) {
+  countries.forEach(function (country) {
+    promiseChain = promiseChain.then(getMentorsEmailWithNewsletter(country));
+  });
+}
+if (getParents) {
+  countries.forEach(function (country) {
+    promiseChain = promiseChain.then(getParentsEmailWithNewsletter(country));
+  });
+}
+promiseChain = promiseChain.then(disconnectFromClient(usersClient));
+promiseChain = promiseChain.then(disconnectFromClient(dojosClient));
+promiseChain = promiseChain.then(disconnectFromClient(eventsClient));
+
+if (getStats) {
+  console.log('Creating ' + filename);
+  fs.appendFileSync(filename, date.format("YYYY-MM-DD") +'\n');
+  promiseChain = promiseChain.then(activeDojos)
+    .then(activeDojos)
+    .then(dojosUsingEvents)
+    .then(groupedDojosUsingEvents)
+    .then(recentEvents)
+    .then(regularEvents)
+    .then(newUsers)
+    .then(totalUsers)
+    .then(averageEventCap)
+    .then(NumberOfYouthBookedAndCheckedIn)
+    .then(NumberOfYouthBooked)
+    .then(NumberOfYouthBookedAtLeastTwice)
+    .then(NumberOfYouthBookedAndCheckedInAtLeastTwice)
+    .then(NumberOfDojosWithEventsWithAtLeastOneAttendant)
+    .then(NumberOfDojosWithEventsWithAtLeastOneAttendantWhoCheckedIn);
+}
+promiseChain.then(function() {
+  console.log('Stats finished');
+  process.exit();
 });
 
+function connectToClient(client) {
+  return function () {
+    return new Promise(function (resolve, reject) {
+      client.connect(function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+}
+
+function disconnectFromClient(client) {
+  return function () {
+    return new Promise(function (resolve, reject) {
+      client.end(function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+}
 
 // Functions for stats
 function activeDojoChampions() {
@@ -171,19 +207,21 @@ function activeDojoChampions() {
 
 function getO13EmailsPerCountry (countryCode) {
   console.log(arguments.callee.name);
-  return userDB.select('email', 'name').from('cd_profiles').whereRaw('user_type::text LIKE \'%o13%\' AND email IS NOT NULL AND alpha2 =\'' + countryCode+'\'')
-  .then(function(o13Profiles){
-    if (o13Profiles.length > 0){
-      var csv = json2csv({ data: o13Profiles });
-      fs.writeFile('o13From'+countryCode+'.csv', csv, function(err) {
-        if (err) throw err;
-        console.log('file saved');
-        return Promise.resolve();
+  return function () {
+    return userDB.select('email', 'name').from('cd_profiles').whereRaw('user_type::text LIKE \'%o13%\' AND email IS NOT NULL AND alpha2 =\'' + countryCode+'\'')
+      .then(function(o13Profiles){
+        if (o13Profiles.length > 0){
+          var csv = json2csv({ data: o13Profiles });
+          fs.writeFile('o13From'+countryCode+'.csv', csv, function(err) {
+            if (err) throw err;
+            console.log('file saved');
+            return Promise.resolve();
+          });
+        } else {
+          return Promise.resolve();
+        }
       });
-    } else {
-      return Promise.resolve();
-    }
-  });
+  }
 }
 
 function getUsersEmailByOldUserType (userType) {
@@ -262,32 +300,73 @@ function getEveryNonChampionUsersEmailWithNewsletter () {
 }
 
 function getChampionsEmailWithNewsletter (countryCode) {
-  console.log(arguments.callee.name);
+  return getUserEmailWithNewsletter('champion', countryCode);
+}
+
+function getMentorsEmailWithNewsletter (countryCode) {
+  return getUserEmailWithNewsletter('mentor', countryCode);
+}
+
+function getParentsEmailWithNewsletter (countryCode) {
+  return getUserEmailWithNewsletter('parent-guardian', countryCode);
+}
+
+function getO13sEmailWithNewsletter (countryCode) {
+  return getUserEmailWithNewsletter('o13', countryCode);
+}
+
+function getUserEmailWithNewsletter(userType, countryCode) {
   var query = 'SELECT user_id FROM cd_usersdojos ud INNER JOIN cd_dojos d ON ud.dojo_id = d.id ' +
-    ' WHERE ( array_to_string(user_types, \',\') LIKE \'%champion%\' OR array_to_string(user_types, \',\')  LIKE \'%mentor%\' )';
+    ' WHERE ( array_to_string(user_types, \',\') LIKE \'%' + userType + '%\' )';
   if (countryCode) query += ' AND alpha2 = \'' + countryCode + '\''; // God this is ugly
-  return new Promise( function(resolve, reject) {
-    dojosClient.query(query, [],
-     function (err, res) {
-       console.log(arguments.callee.name, countryCode, err);
-       if (res && res.rows.length > 0) {
-         console.log(arguments.callee.name, res.rows.length, countryCode);
-         var champions = _.map(res.rows, 'user_id');
-         console.log(champions.length);
-         return userDB.select('email', 'name', 'mailing_list').from('sys_user').whereIn('id', champions).andWhere('mailing_list', 1)
-           .then(function(championsProfiles){
-             var csv = json2csv({ data: championsProfiles });
-             fs.writeFile('champions'+ countryCode +'Newsletter.csv', csv, function(err) {
-               if (err) throw err;
-               console.log('file saved');
-               return resolve();
-             });
-           });
-       } else {
-         return resolve();
-       }
+  return function () {
+    return new Promise( function(resolve, reject) {
+      console.log('Getting emails for ' + userType + ' in ' + countryCode);
+      dojosClient.query(query, [],
+        function (err, res) {
+          if (res && res.rows.length > 0) {
+            var champions = _.map(res.rows, 'user_id');
+            return userDB.select('email', 'name', 'mailing_list').from('sys_user').whereIn('id', champions).andWhere('mailing_list', 1)
+              .then(function (championsProfiles) {
+                if (includeNonDojoMembers) {
+                  return new Promise(function (resolve, reject) {
+                    userDB.select('sys_user.email', 'sys_user.name', 'sys_user.mailing_list')
+                      .from('sys_user')
+                      .join('cd_profiles', 'sys_user.id', '=', 'cd_profiles.user_id')
+                      .where('sys_user.init_user_type', 'like', '%' + userType + '%')
+                      .andWhere('sys_user.mailing_list', 1)
+                      .andWhere('cd_profiles.alpha2', countryCode)
+                      .then(function (nonDojoMemberChampionsProfiles) {
+                        console.log('nonDojoMemberChampionsProfiles.length', nonDojoMemberChampionsProfiles.length);
+                        championsProfiles = championsProfiles.concat(nonDojoMemberChampionsProfiles);
+                        resolve(championsProfiles);
+                      })
+                  });
+                } else {
+                  return Promise.resolve(championsProfiles);
+                }
+              })
+              .then(function(championsProfiles){
+                championsProfiles = _.uniqBy(championsProfiles, 'email');
+                if (championsProfiles.length > 0) {
+                  var csv = json2csv({ data: championsProfiles });
+                  fs.writeFile(userType + countryCode + 'Newsletter.csv', csv, function(err) {
+                    if (err) throw err;
+                    console.log(userType + countryCode + 'Newsletter.csv saved');
+                    return resolve();
+                  });
+                } else {
+                  console.log('No ' + userType + ' signed up to mailing list in ' + countryCode);
+                  return resolve();
+                }
+              });
+          } else {
+            console.log('No ' + userType + ' in ' + countryCode);
+            return resolve();
+          }
+        });
     });
-  });
+  }
 }
 
 function getChampionPhonesForPolledDojos () {

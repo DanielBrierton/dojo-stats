@@ -6,14 +6,17 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "bin": {
+    "dojo-stats": "index.js"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bluebird": "^3.4.1",
+    "commander": "^2.9.0",
     "json2csv": "^3.7.0",
     "knex": "^0.11.10",
     "lodash": "^4.15.0",
-    "minimist": "^1.2.0",
     "moment": "^2.14.1",
     "pg": "^6.0.1"
   }
